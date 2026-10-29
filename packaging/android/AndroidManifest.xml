@@ -47,9 +47,9 @@
         android:extractNativeLibs="false">
         <activity
             android:name="org.mixxx.MainActivity"
-            android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
+            android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density|colorMode|fontWeightAdjustment|grammaticalGender"
             android:launchMode="singleTop"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="fullUser"
             android:resizeableActivity="true"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
