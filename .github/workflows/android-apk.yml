@@ -206,6 +206,61 @@ jobs:
             echo "SHA-256: \`$(cut -d' ' -f1 "dist/$APK_NAME.sha256")\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Aviso (no bloquea): simbolos que las .so del APK importan y que no
+      # existen ni en otra .so del APK ni en los stubs del NDK para API 29.
+      # Un simbolo asi hace que dlopen falle en Android 10.
+      - name: Simbolos no disponibles en API 29 (aviso)
+        continue-on-error: true
+        run: |
+          export LC_ALL=C   # sort y comm deben usar el mismo orden
+          API=29
+          PREBUILT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+          NM="$PREBUILT/bin/llvm-nm"
+          STUBS="$PREBUILT/sysroot/usr/lib/aarch64-linux-android/$API"
+          WORK="$RUNNER_TEMP/symcheck"
+          rm -rf "$WORK" && mkdir -p "$WORK/libs"
+          if [ ! -x "$NM" ] || [ ! -d "$STUBS" ]; then
+            echo "::warning::No se encuentra llvm-nm o los stubs de API $API en el NDK; se omite la comprobacion."
+            exit 0
+          fi
+          unzip -q -o -j "dist/$APK_NAME" 'lib/arm64-v8a/*.so' -d "$WORK/libs"
+
+          # Nombre del simbolo sin la version (foo@LIBC -> foo).
+          strip_ver() { sed -E 's/@+[^@]*$//'; }
+          defined() { "$NM" -D --defined-only "$@" 2>/dev/null | awk 'NF>=3 {print $NF}' | strip_ver; }
+
+          # Simbolos disponibles: stubs de API 29 + exportados por las .so del APK.
+          { for f in "$STUBS"/*.so; do defined "$f"; done
+            for f in "$WORK"/libs/*.so; do defined "$f"; done; } | sort -u > "$WORK/available.txt"
+
+          : > "$WORK/missing.tsv"
+          for f in "$WORK"/libs/*.so; do
+            lib=$(basename "$f")
+            # Solo indefinidos fuertes (U); los debiles (w/v) pueden faltar.
+            "$NM" -D --undefined-only "$f" 2>/dev/null | awk '$(NF-1)=="U" {print $NF}' | strip_ver | sort -u \
+              | comm -23 - "$WORK/available.txt" | sed "s|^|$lib\t|" >> "$WORK/missing.tsv"
+          done
+
+          TOTAL=$(wc -l < "$WORK/missing.tsv")
+          MIXXX=$(awk -F'\t' '$1=="libmixxx_arm64-v8a.so"' "$WORK/missing.tsv" | wc -l)
+          {
+            echo "### Simbolos no disponibles en API $API"
+            echo ""
+            if [ "$TOTAL" -eq 0 ]; then
+              echo "Ninguno: todas las .so del APK resuelven sus simbolos con API $API."
+            else
+              echo "$TOTAL simbolos sin resolver ($MIXXX en libmixxx_arm64-v8a.so):"
+              echo ""
+              echo "| Biblioteca | Simbolo |"
+              echo "|---|---|"
+              awk -F'\t' '{printf "| %s | `%s` |\n", $1, $2}' "$WORK/missing.tsv"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$WORK/missing.tsv"
+          if [ "$TOTAL" -gt 0 ]; then
+            echo "::warning::$TOTAL simbolos importados no existen en API $API ($MIXXX en libmixxx_arm64-v8a.so). Ver el resumen de la ejecucion."
+          fi
+
       - name: Subir la APK como artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
