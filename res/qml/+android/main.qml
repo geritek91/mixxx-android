@@ -42,7 +42,18 @@ ApplicationWindow {
         }
     }
 
-    Component.onCompleted: root.updateVisibility()
+    Component.onCompleted: {
+        if (root.isMobile) {
+            // Screen.width/height only give the first size. Assigning the
+            // current values removes the bindings, so on rotation, split
+            // screen or freeform windows the window keeps the geometry that
+            // Android gives the Activity instead of being forced back to the
+            // size of the whole screen. Desktop keeps its design size.
+            root.width = root.width;
+            root.height = root.height;
+        }
+        root.updateVisibility();
+    }
 
     Loader {
         id: content
