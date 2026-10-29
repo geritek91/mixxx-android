@@ -2443,6 +2443,13 @@ if(QT6)
     )
     set_target_properties(mixxx PROPERTIES QT_ANDROID_ABIS "${ANDROID_ABI}")
     set_target_properties(mixxx PROPERTIES QT_ANDROID_PACKAGE_NAME "org.mixxx")
+    # Android 10 (API 29) is the oldest supported version: AMidi needs it.
+    # Keep QT_ANDROID_MIN_SDK_VERSION in sync with CMAKE_SYSTEM_VERSION (the
+    # native API level) at the top of this file.
+    set_target_properties(
+      mixxx
+      PROPERTIES QT_ANDROID_MIN_SDK_VERSION 29 QT_ANDROID_TARGET_SDK_VERSION 35
+    )
     set_target_properties(
       mixxx
       PROPERTIES QT_ANDROID_VERSION_NAME "${MIXXX_VERSION}"
