@@ -44,8 +44,41 @@ Item {
     readonly property int numPreviewDecks: 1
     readonly property int numSamplers: 16
     readonly property int waveformOverviewTypeRgb: 2
-    readonly property bool show4decks: show4DecksButton.checked && show4DecksButton.visible
+    // 4 decks chosen with the 4D button. Their loaders stay active while the
+    // window is too narrow or too low to show them, so they are not rebuilt
+    // when it grows again (rotation, split screen).
+    readonly property bool fourDecksChosen: show4DecksButton.checked && root.topBarItemShown("4d")
+    readonly property bool show4decks: root.fourDecksChosen && show4DecksButton.visible
     property bool showEffects: false
+
+    // ================= COMPACT MODE (narrow windows) =================
+    // Portrait and split screen: at most 2 decks, the mixer below the decks
+    // and the library only in the deck loader drawer or in the LIB view.
+    // Only visibility, anchors and sizes change: switching modes never
+    // destroys a deck nor touches the audio engine.
+    readonly property int compactMaxWidth: 900 // dp
+    readonly property bool compact: root.width < root.compactMaxWidth
+    readonly property bool portrait: root.height > root.width
+    // The DJ view laid out in compact mode
+    readonly property bool compactDj: root.compact && root.viewMode === 1 && !root.maximizeLibrary
+    // Info bar + PLAY + CUE of a deck, with its margins
+    readonly property int compactDeckMinHeight: 190
+    readonly property int compactDeckIdealHeight: 230
+    readonly property int compactWaveformMinHeight: 80
+    readonly property int splitHandleHeight: 4
+    // With enough height the decks are stacked and use the full width, so
+    // the pads (and the STEM tab) get room, e.g. on an 8" tablet in portrait
+    readonly property bool compactStacked: root.compactDj && splitView.height >= mixer.height + 2 * root.compactDeckMinHeight + root.compactWaveformMinHeight + root.splitHandleHeight
+    readonly property int compactLoadButtonHeight: 48
+    readonly property int compactLoadButtonMaxWidth: 160
+    readonly property int compactLoadButtonMargin: 12
+
+    // Colors of the buttons that open the deck loader of each deck
+    readonly property color loadDeck1Color: "#1565c0"
+    readonly property color loadDeck1ActiveColor: "#64b5f6"
+    readonly property color loadDeck2Color: "#e65100"
+    readonly property color loadDeck2ActiveColor: "#ffb74d"
+    readonly property color loadButtonTextColor: "#ffffff"
     property bool showSamplers: false
 
     function openQuickLoad(group) {
@@ -348,9 +381,9 @@ Item {
                         visible: root.topBarItemShown("load1")
                         Layout.preferredHeight: 30
                         Layout.preferredWidth: 62
-                        activeColor: "#64b5f6"
-                        backgroundColor: "#1565c0"
-                        normalColor: "#ffffff"
+                        activeColor: root.loadDeck1ActiveColor
+                        backgroundColor: root.loadDeck1Color
+                        normalColor: root.loadButtonTextColor
                         font.bold: true
                         font.pixelSize: 10
                         text: qsTr("LOAD %1").arg(1)
@@ -362,9 +395,9 @@ Item {
                         visible: root.topBarItemShown("load2")
                         Layout.preferredHeight: 30
                         Layout.preferredWidth: 62
-                        activeColor: "#ffb74d"
-                        backgroundColor: "#e65100"
-                        normalColor: "#ffffff"
+                        activeColor: root.loadDeck2ActiveColor
+                        backgroundColor: root.loadDeck2Color
+                        normalColor: root.loadButtonTextColor
                         font.bold: true
                         font.pixelSize: 10
                         text: qsTr("LOAD %1").arg(2)
@@ -476,7 +509,8 @@ Item {
                         activeColor: Theme.white
                         checkable: true
                         text: "4D"
-                        visible: root.height > 515 && root.topBarItemShown("4d")
+                        // Compact mode shows at most 2 decks
+                        visible: root.height > 515 && root.topBarItemShown("4d") && !root.compact
                     }
                 }
             }
@@ -539,8 +573,15 @@ Item {
                     if (root.viewMode === 3) return splitView.height;
                     if (root.viewMode === 0) return Math.round(splitView.height * 0.42);
                     if (root.viewMode === 2 || root.maximizeLibrary) return 0;
+                    // Compact: the waveforms take what the decks and the mixer leave
+                    if (root.compactStacked)
+                        return Math.max(root.compactWaveformMinHeight, Math.min(Math.round(splitView.height * 0.4), splitView.height - root.splitHandleHeight - mixer.height - 2 * root.compactDeckIdealHeight));
+                    if (root.compact)
+                        return Math.max(0, Math.min(130, splitView.height - root.splitHandleHeight - mixer.height - root.compactDeckMinHeight));
                     return Math.max(80, Math.min(130, Math.round(splitView.height * 0.32)));
                 }
+                // Compact: dragging the handle can't cover the decks or the mixer
+                SplitView.maximumHeight: root.compactDj ? Math.max(0, splitView.height - root.splitHandleHeight - lowerSection.SplitView.minimumHeight) : splitView.height
                 visible: root.viewMode !== 2 && !root.maximizeLibrary
 
                 FadeBehavior on visible {
@@ -552,9 +593,10 @@ Item {
 
                     readonly property string group: "[Channel3]"
 
-                    active: root.show4decks
+                    active: root.fourDecksChosen
                     anchors.top: parent.top
-                    height: waveforms.scrollingHeight / 4
+                    height: root.show4decks ? waveforms.scrollingHeight / 4 : 0
+                    visible: root.show4decks
                     width: root.width
 
                     sourceComponent: Component {
@@ -591,9 +633,10 @@ Item {
 
                     readonly property string group: "[Channel4]"
 
-                    active: root.show4decks
+                    active: root.fourDecksChosen
                     anchors.top: deck2waveform.bottom
-                    height: waveforms.scrollingHeight / 4
+                    height: root.show4decks ? waveforms.scrollingHeight / 4 : 0
+                    visible: root.show4decks
                     width: root.width
 
                     sourceComponent: Component {
@@ -621,8 +664,15 @@ Item {
             Item {
                 id: lowerSection
 
+                // Compact DJ view: height of each deck, the mixer goes below them
+                readonly property real compactDeckHeight: Math.max(root.compactDeckMinHeight, (height - mixer.height) / (root.compactStacked ? 2 : 1))
+
                 SplitView.fillHeight: root.viewMode !== 3
-                SplitView.minimumHeight: (root.viewMode === 1 && !root.maximizeLibrary) ? mixer.height : 60
+                SplitView.minimumHeight: {
+                    if (root.compactDj)
+                        return mixer.height + (root.compactStacked ? 2 : 1) * root.compactDeckMinHeight;
+                    return (root.viewMode === 1 && !root.maximizeLibrary) ? mixer.height : 60;
+                }
                 visible: root.viewMode !== 3
 
                 Deck {
@@ -630,7 +680,7 @@ Item {
 
                     editMode: root.editDeck
                     group: "[Channel1]"
-                    height: (root.viewMode === 2 || root.maximizeLibrary) ? 70 : root.show4decks ? mixer.height / 2 : mixer.height
+                    height: (root.viewMode === 2 || root.maximizeLibrary) ? 70 : root.compactDj ? lowerSection.compactDeckHeight : root.show4decks ? mixer.height / 2 : mixer.height
                     minimized: root.viewMode === 2 || root.maximizeLibrary
                     visible: root.viewMode === 1 || root.viewMode === 2
 
@@ -658,9 +708,10 @@ Item {
                         root.focusedDeck = (root.focusedDeck === deck1) ? null : deck1;
                     }
 
+                    // Compact: half of the width, or all of it when stacked
                     anchors {
                         left: parent.left
-                        right: mixer.left
+                        right: root.compactDj ? (root.compactStacked ? parent.right : parent.horizontalCenter) : mixer.left
                         top: parent.top
                     }
                 }
@@ -668,7 +719,8 @@ Item {
                     id: mixer
 
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
+                    // Compact: below the decks
+                    anchors.top: root.compactDj ? (root.compactStacked ? deck2.bottom : deck1.bottom) : parent.top
                     groups: [deck1.group, deck2.group, deck3.group, deck4.group]
                     height: implicitHeight
                     show4decks: root.show4decks
@@ -724,7 +776,7 @@ Item {
 
                     editMode: root.editDeck
                     group: "[Channel2]"
-                    height: (root.viewMode === 2 || root.maximizeLibrary) ? 70 : root.show4decks ? mixer.height / 2 : mixer.height
+                    height: (root.viewMode === 2 || root.maximizeLibrary) ? 70 : root.compactDj ? lowerSection.compactDeckHeight : root.show4decks ? mixer.height / 2 : mixer.height
                     minimized: root.viewMode === 2 || root.maximizeLibrary
                     visible: root.viewMode === 1 || root.viewMode === 2
 
@@ -752,19 +804,58 @@ Item {
                         root.focusedDeck = (root.focusedDeck === deck2) ? null : deck2;
                     }
 
+                    // Compact: right half, or below deck 1 when stacked
                     anchors {
-                        left: mixer.right
+                        left: root.compactDj ? (root.compactStacked ? parent.left : parent.horizontalCenter) : mixer.right
                         right: parent.right
-                        top: parent.top
+                        top: root.compactStacked ? deck1.bottom : parent.top
                     }
+                }
+
+                // Compact DJ view: the library opens as a drawer (the deck
+                // loader) from both sides of the mixer
+                Skin.Button {
+                    id: compactLoadD1Button
+
+                    anchors.right: mixer.left
+                    anchors.rightMargin: root.compactLoadButtonMargin
+                    anchors.verticalCenter: mixer.verticalCenter
+                    height: root.compactLoadButtonHeight
+                    width: Math.max(0, Math.min(root.compactLoadButtonMaxWidth, (lowerSection.width - mixer.width) / 2 - 2 * root.compactLoadButtonMargin))
+                    visible: root.compactDj
+                    activeColor: root.loadDeck1ActiveColor
+                    backgroundColor: root.loadDeck1Color
+                    normalColor: root.loadButtonTextColor
+                    font.bold: true
+                    text: qsTr("LOAD %1").arg(1)
+                    Accessible.name: text
+                    onClicked: root.openQuickLoad("[Channel1]")
+                }
+                Skin.Button {
+                    id: compactLoadD2Button
+
+                    anchors.left: mixer.right
+                    anchors.leftMargin: root.compactLoadButtonMargin
+                    anchors.verticalCenter: mixer.verticalCenter
+                    height: root.compactLoadButtonHeight
+                    width: compactLoadD1Button.width
+                    visible: root.compactDj
+                    activeColor: root.loadDeck2ActiveColor
+                    backgroundColor: root.loadDeck2Color
+                    normalColor: root.loadButtonTextColor
+                    font.bold: true
+                    text: qsTr("LOAD %1").arg(2)
+                    Accessible.name: text
+                    onClicked: root.openQuickLoad("[Channel2]")
                 }
                 Loader {
                     id: deck3
 
                     readonly property string group: "[Channel3]"
 
-                    active: root.show4decks
-                    height: active ? (root.maximizeLibrary ? 80 : mixer.height / 2) : 0
+                    active: root.fourDecksChosen
+                    visible: root.show4decks
+                    height: root.show4decks ? (root.maximizeLibrary ? 80 : mixer.height / 2) : 0
 
                     Behavior on height {
                         SpringAnimation {
@@ -806,8 +897,9 @@ Item {
 
                     readonly property string group: "[Channel4]"
 
-                    active: root.show4decks
-                    height: active ? (root.maximizeLibrary ? 80 : mixer.height / 2) : 0
+                    active: root.fourDecksChosen
+                    visible: root.show4decks
+                    height: root.show4decks ? (root.maximizeLibrary ? 80 : mixer.height / 2) : 0
 
                     Behavior on height {
                         SpringAnimation {
@@ -863,9 +955,11 @@ Item {
                     // Hidden, it ignores the controller (see Library.qml).
                     property bool keepLoaded: false
 
-                    active: keepLoaded || root.viewMode === 0 || root.viewMode === 2 || root.maximizeLibrary || root.height - mixer.height >= 400
+                    // In compact mode the DJ view has no room for it: the
+                    // library is in the deck loader drawer and the LIB view
+                    active: keepLoaded || root.viewMode === 0 || root.viewMode === 2 || root.maximizeLibrary || (!root.compact && root.height - mixer.height >= 400)
                     onLoaded: keepLoaded = true
-                    visible: root.viewMode === 0 || root.viewMode === 2 || root.maximizeLibrary || (root.viewMode === 1 && root.height - mixer.height >= 400)
+                    visible: root.viewMode === 0 || root.viewMode === 2 || root.maximizeLibrary || (root.viewMode === 1 && !root.compact && root.height - mixer.height >= 400)
                     width: parent.width
 
                     sourceComponent: Component {
@@ -915,7 +1009,7 @@ Item {
                             }
                         },
                         State {
-                            when: root.viewMode === 1 && root.height - mixer.height >= 400
+                            when: root.viewMode === 1 && !root.compact && root.height - mixer.height >= 400
 
                             AnchorChanges {
                                 anchors.bottom: parent.bottom
@@ -928,7 +1022,7 @@ Item {
                             }
                         },
                         State {
-                            when: root.viewMode === 1 && root.height - mixer.height < 400
+                            when: root.viewMode === 1 && (root.compact || root.height - mixer.height < 400)
 
                             PropertyChanges {
                                 target: library

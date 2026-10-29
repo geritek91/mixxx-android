@@ -399,6 +399,12 @@ Rectangle {
         readonly property bool hasTrack: selectedUrls && selectedUrls.length > 0
         // Without a selection, "+ ALL" adds the whole list to a playlist
         readonly property bool hasTracks: view.rows > 0
+        // Narrow library (portrait, split screen, sidebar shown): shorter
+        // load buttons, so that 🎚 STEMS keeps its room
+        readonly property bool narrow: width < 520
+        readonly property int loadButtonWidth: narrow ? 64 : 115
+        readonly property string loadDeck1Text: "◀ DECK 1"
+        readonly property string loadDeck2Text: "DECK 2 ▶"
 
         RowLayout {
             anchors.fill: parent
@@ -480,14 +486,15 @@ Rectangle {
                 id: loadDeck1Btn
 
                 Layout.preferredHeight: 38
-                Layout.preferredWidth: 115
+                Layout.preferredWidth: quickLoadBar.loadButtonWidth
                 activeColor: "#64b5f6"
                 backgroundColor: quickLoadBar.hasTrack ? "#1565c0" : "#262930"
                 normalColor: quickLoadBar.hasTrack ? "#ffffff" : "#78909c"
                 highlight: quickLoadBar.hasTrack
                 enabled: quickLoadBar.hasTrack
                 font.bold: true
-                text: "◀ DECK 1"
+                text: quickLoadBar.narrow ? "◀ 1" : quickLoadBar.loadDeck1Text
+                Accessible.name: quickLoadBar.loadDeck1Text
 
                 onClicked: {
                     view.loadSelectedTrack("[Channel1]", false);
@@ -498,14 +505,15 @@ Rectangle {
                 id: loadDeck2Btn
 
                 Layout.preferredHeight: 38
-                Layout.preferredWidth: 115
+                Layout.preferredWidth: quickLoadBar.loadButtonWidth
                 activeColor: "#ffb74d"
                 backgroundColor: quickLoadBar.hasTrack ? "#e65100" : "#262930"
                 normalColor: quickLoadBar.hasTrack ? "#ffffff" : "#78909c"
                 highlight: quickLoadBar.hasTrack
                 enabled: quickLoadBar.hasTrack
                 font.bold: true
-                text: "DECK 2 ▶"
+                text: quickLoadBar.narrow ? "2 ▶" : quickLoadBar.loadDeck2Text
+                Accessible.name: quickLoadBar.loadDeck2Text
 
                 onClicked: {
                     view.loadSelectedTrack("[Channel2]", false);

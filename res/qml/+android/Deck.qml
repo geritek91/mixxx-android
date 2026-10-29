@@ -132,7 +132,9 @@ Item {
                         },
                         {
                             "type": "tempo",
-                            "minWidth": 220
+                            // Below 300 (2 decks side by side in a narrow
+                            // window) the pads need the room
+                            "minWidth": 300
                         }
                     ]
                 }

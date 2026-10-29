@@ -83,6 +83,10 @@ Popup {
                 }
 
                 Text {
+                    // In narrow windows the deck pill already says it, and
+                    // the buttons need the room
+                    visible: root.width >= 700
+                    elide: Text.ElideRight
                     text: qsTr("Load track into %1").arg(root.deckName)
                     color: "#ffffff"
                     font.bold: true
