@@ -13,7 +13,7 @@ namespace stems {
 namespace {
 
 const QString kBaseUrl = QStringLiteral(
-        "https://github.com/JaviLabarumDJ/mixxx-android/releases/download/stems-models-v1/");
+        "https://github.com/geritek91/mixxx-android/releases/download/stems-models-v1/");
 
 struct ModelFile {
     const char* remoteName;
