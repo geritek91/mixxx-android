@@ -2443,6 +2443,15 @@ if(QT6)
       PUBLIC ANDROID_PACKAGE_NAME="org.mixxx"
     )
     qt_add_executable(mixxx src/main.cpp MANUAL_FINALIZATION)
+    # Private replacements for libc functions that some prebuilt static
+    # dependencies (zix, abseil) reference but bionic only has from API 33/34
+    # on, above our native API level (29). Compiled straight into the mixxx
+    # target so that the object is always part of libmixxx_<abi>.so.
+    target_sources(mixxx PRIVATE src/util/androidlibccompat.cpp)
+    set_source_files_properties(
+      src/util/androidlibccompat.cpp
+      PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+    )
     set_property(
       TARGET mixxx
       PROPERTY
