@@ -106,9 +106,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL Android)
     message(FATAL_ERROR "Unsupported ANDROID_ABI '${ANDROID_ABI}'")
   endif()
   set(ANDROID_NDK_HOST_SYSTEM_NAME linux-x86_64)
-  set(CMAKE_SYSTEM_VERSION 35) # API level
+  # Native API level, i.e. the minimum Android version the native code may
+  # rely on. It must match QT_ANDROID_MIN_SDK_VERSION (29, Android 10): when
+  # compiling for a higher level, the NDK headers (libc++ included) reference
+  # libc symbols that older devices lack, and the app fails to load there.
+  # Newer NDK APIs (AMidi, APerformanceHint) are resolved with dlsym instead.
+  # The Java side is still compiled against the newest installed platform
+  # (android-35, see tools/android_buildenv.sh).
+  set(CMAKE_SYSTEM_VERSION 29) # API level
   set(ANDROID_PLATFORM "android-${CMAKE_SYSTEM_VERSION}")
-  set(ANDROID_API_VERSION "android-${CMAKE_SYSTEM_VERSION}")
+  set(ANDROID_API_VERSION "android-35")
   set(CMAKE_ANDROID_ARCH_ABI "${ANDROID_ABI}")
   set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION clang)
   set(CMAKE_ANDROID_STL_TYPE c++_shared)
